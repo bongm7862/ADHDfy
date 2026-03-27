@@ -51,7 +51,7 @@
         document.head.appendChild(style);
     }
 
-    console.log("ADHDfy v7.69 loaded!");
+    console.log("ADHDfy v7.72 loaded!");
 
     let savedGifs = JSON.parse(Spicetify.LocalStorage.get("MyCustomGifs") || "[]").map(gif => ({
         ...gif,
@@ -170,6 +170,29 @@
     }
 
     function renderGifs() {
+        const oldStates = renderedElements.map(item => ({
+            oldW: item.img.offsetWidth,
+            oldH: item.img.offsetHeight,
+            currentX: item.currentX,
+            currentY: item.currentY,
+            dvdVx: item.dvdVx,
+            dvdVy: item.dvdVy,
+            rainX: item.rainX,
+            rainY: item.rainY,
+            rainScale: item.rainScale,
+            rainRot: item.rainRot,
+            rainSpeedMult: item.rainSpeedMult,
+            rainRotSpeed: item.rainRotSpeed,
+            stepPhase: item.stepPhase,
+            stepAmp: item.stepAmp,
+            bobY: item.bobY,
+            wobbleRot: item.wobbleRot,
+            currentSpin: item.currentSpin,
+            currentHueOffset: item.currentHueOffset,
+            flipPhase: item.flipPhase,
+            currentScaleX: item.currentScaleX
+        }));
+
         renderedElements.forEach(item => item.img.remove());
         renderedElements = [];
 
@@ -288,7 +311,8 @@
             }
 
             document.body.appendChild(wrapper);
-            renderedElements.push({ img: wrapper, realImg: img, borderBox: borderBox, data: gifData });
+            const stateObj = oldStates[renderedElements.length] || {};
+            renderedElements.push({ img: wrapper, realImg: img, borderBox: borderBox, data: gifData, ...stateObj });
 
             if (gifData.rainFall) {
                 const clonesCount = Math.max(0, (gifData.rainCount || 15) - 1);
@@ -325,14 +349,17 @@
                     cloneWrapper.appendChild(cloneBorderBox);
 
                     document.body.appendChild(cloneWrapper);
-                    renderedElements.push({ img: cloneWrapper, realImg: cloneImg, borderBox: cloneBorderBox, data: gifData, isRainClone: true });
+                    const cloneStateObj = oldStates[renderedElements.length] || {};
+                    renderedElements.push({ img: cloneWrapper, realImg: cloneImg, borderBox: cloneBorderBox, data: gifData, isRainClone: true, ...cloneStateObj });
                 }
             }
         });
+
+        trackAnchors(performance.now(), true);
     }
 
     let lastTime = performance.now();
-    function trackAnchors(timestamp) {
+    function trackAnchors(timestamp, isSyncUpdate = false) {
         if (!timestamp) timestamp = performance.now();
         let dt = (timestamp - lastTime) / (1000 / 60); 
         if (dt > 3) dt = 3; 
@@ -347,6 +374,9 @@
                 }
 
             if (item.img.dataset.dragging === "true") return;
+
+            const w = item.img.offsetWidth || item.oldW || item.data.size;
+            const h = item.img.offsetHeight || item.oldH || item.data.size;
 
             item.bobY = 0;
             item.wobbleRot = 0;
@@ -381,8 +411,8 @@
                 item.bobY = amp ? -Math.abs(Math.sin(item.stepPhase)) * 8 * amp : 0;
                 item.wobbleRot = amp ? Math.sin(item.stepPhase) * 12 * amp : 0;
 
-                item.img.style.left = `${item.currentX - (item.img.offsetWidth / 2)}px`;
-                item.img.style.top = `${item.currentY - (item.img.offsetHeight / 2)}px`;
+                item.img.style.left = `${item.currentX - (w / 2)}px`;
+                item.img.style.top = `${item.currentY - (h / 2)}px`;
                 item.img.style.bottom = 'auto';
                 item.img.style.display = "block";
             } else if (item.data.dvdBounce) {
@@ -401,8 +431,6 @@
                 item.currentX += item.dvdVx * dt;
                 item.currentY += item.dvdVy * dt;
 
-                const w = item.img.offsetWidth;
-                const h = item.img.offsetHeight;
                 const leftBound = w / 2;
                 const rightBound = window.innerWidth - w / 2;
                 const topBound = h / 2;
@@ -431,16 +459,16 @@
                 item.rainY += speed * dt;
                 item.rainRot += item.rainRotSpeed * dt;
 
-                const h = (item.img.offsetHeight || item.data.size) * item.rainScale;
-                if (item.rainY > window.innerHeight + h) {
-                    item.rainY = -h - (Math.random() * 200);
+                const hScaled = h * item.rainScale;
+                if (item.rainY > window.innerHeight + hScaled) {
+                    item.rainY = -hScaled - (Math.random() * 200);
                     item.rainX = Math.random() * window.innerWidth;
                     item.rainSpeedMult = 0.5 + Math.random();
                     item.rainScale = 0.4 + Math.random() * 0.8;
                 }
 
-                item.img.style.left = `${item.currentX = item.rainX - (item.img.offsetWidth / 2)}px`;
-                item.img.style.top = `${item.currentY = item.rainY - (item.img.offsetHeight / 2)}px`;
+                item.img.style.left = `${item.currentX = item.rainX - (w / 2)}px`;
+                item.img.style.top = `${item.currentY = item.rainY - (h / 2)}px`;
                 item.img.style.bottom = 'auto';
                 item.img.style.display = "block";
 
@@ -460,8 +488,8 @@
                     const centerTargetX = progRect.left + (progRect.width * pct);
                     const centerTargetY = progRect.top + (progRect.height / 2);
 
-                    item.img.style.left = `${centerTargetX - (item.img.offsetWidth / 2)}px`;
-                    item.img.style.top = `${centerTargetY - (item.img.offsetHeight / 2)}px`;
+                    item.img.style.left = `${centerTargetX - (w / 2)}px`;
+                    item.img.style.top = `${centerTargetY - (h / 2)}px`;
                     item.img.style.bottom = 'auto';
                     item.img.style.display = "block";
                 } else {
@@ -479,8 +507,8 @@
                         const centerTargetX = rect.left + (rect.width * item.data.xPct);
                         const centerTargetY = rect.top + (rect.height * item.data.yPct);
 
-                        item.img.style.left = `${centerTargetX - (item.img.offsetWidth / 2)}px`;
-                        item.img.style.top = `${centerTargetY - (item.img.offsetHeight / 2)}px`;
+                        item.img.style.left = `${centerTargetX - (w / 2)}px`;
+                        item.img.style.top = `${centerTargetY - (h / 2)}px`;
                         item.img.style.bottom = 'auto';
                     } else {
                         const screenLeft = rect.left + item.data.x;
@@ -550,7 +578,9 @@
             }
         });
 
-        requestAnimationFrame(trackAnchors);
+        if (!isSyncUpdate) {
+            requestAnimationFrame(trackAnchors);
+        }
     }
     trackAnchors();
 
@@ -1791,7 +1821,7 @@
 
                         data.results.forEach(item => {
                             const img = document.createElement("img");
-                            img.src = item.media[0].tinygif.url; 
+                            img.src = item.media[0].tinygif.url;
                             img.style.width = "100%";
                             img.style.height = "80px";
                             img.style.objectFit = "cover";
@@ -1963,6 +1993,7 @@
     }
 
     const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09l2.846.813-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" /></svg>`;
+
 
     new Spicetify.Topbar.Button("ADHDfy", iconSvg, () => openSettings());
 
