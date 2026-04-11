@@ -105,6 +105,7 @@
                 justify-content: center;
                 z-index: 99999;
                 backdrop-filter: blur(10px);
+                -webkit-app-region: no-drag;
             }
             .adhdfy-dialog {
                 background: var(--spice-main);
@@ -361,6 +362,7 @@
                 z-index: 99999;
                 backdrop-filter: blur(10px);
                 gap: 20px;
+                -webkit-app-region: no-drag;
             }
             .adhdfy-cropper-title {
                 margin: 0;
@@ -517,6 +519,7 @@
                 position: fixed;
                 z-index: 9999;
                 line-height: 0;
+                -webkit-app-region: no-drag;
             }
             .adhdfy-media-wrapper--clone {
                 z-index: 9998;
@@ -536,7 +539,8 @@
         document.head.appendChild(style);
     }
 
-    const STORAGE_KEY = "adhdfy-layout";
+    const STORAGE_INDEX_KEY = "adhdfy-slot-index";
+    const STORAGE_ACTIVE_KEY = "adhdfy-slot-active";
     const OLD_STORAGE_KEY = "MyCustomGifs";
 
     const GIF_DEFAULTS = {
@@ -560,25 +564,40 @@
         rainFall: false,
         rainSpeed: 5,
         rainCount: 15,
+        beatSync: false,
+        beatSyncStrength: 5,
         crop: { t: 0, r: 0, b: 0, l: 0 }
     };
 
-    if (!Spicetify.LocalStorage.get(STORAGE_KEY) && Spicetify.LocalStorage.get(OLD_STORAGE_KEY)) {
-        Spicetify.LocalStorage.set(STORAGE_KEY, Spicetify.LocalStorage.get(OLD_STORAGE_KEY));
-        Spicetify.LocalStorage.remove(OLD_STORAGE_KEY);
+    if (!Spicetify.LocalStorage.get(STORAGE_INDEX_KEY) && Spicetify.LocalStorage.get("adhdfy-layout")) {
+        Spicetify.LocalStorage.set("adhdfy-layout-Default", Spicetify.LocalStorage.get("adhdfy-layout"));
+        Spicetify.LocalStorage.set(STORAGE_INDEX_KEY, JSON.stringify(["Default"]));
+        Spicetify.LocalStorage.set(STORAGE_ACTIVE_KEY, "Default");
+        Spicetify.LocalStorage.remove("adhdfy-layout");
+    } else if (!Spicetify.LocalStorage.get(STORAGE_INDEX_KEY)) {
+        Spicetify.LocalStorage.set(STORAGE_INDEX_KEY, JSON.stringify(["Default"]));
+        Spicetify.LocalStorage.set(STORAGE_ACTIVE_KEY, "Default");
     }
 
-    console.log("ADHDfy v1.0.4 loaded");
+    let slotIndex = JSON.parse(Spicetify.LocalStorage.get(STORAGE_INDEX_KEY) || '["Default"]');
+    let activeSlot = Spicetify.LocalStorage.get(STORAGE_ACTIVE_KEY) || "Default";
+
+    console.log("ADHDfy v1.0.5 loaded");
 
     function applyDefaults(gif) {
         const result = { ...GIF_DEFAULTS, ...gif };
         if (gif.opacity === undefined) result.opacity = GIF_DEFAULTS.opacity;
         if (gif.visible === undefined) result.visible = GIF_DEFAULTS.visible;
         if (!gif.crop) result.crop = { ...GIF_DEFAULTS.crop };
+        if (!result.id) result.id = Math.random().toString(36).substring(2, 10);
         return result;
     }
 
-    let savedGifs = JSON.parse(Spicetify.LocalStorage.get(STORAGE_KEY) || "[]").map(applyDefaults);
+    function saveCurrentLayout() {
+        Spicetify.LocalStorage.set(`adhdfy-layout-${activeSlot}`, JSON.stringify(savedGifs));
+    }
+
+    let savedGifs = JSON.parse(Spicetify.LocalStorage.get(`adhdfy-layout-${activeSlot}`) || "[]").map(applyDefaults);
 
     const PHYSICS = {
         DT_MAX: 3,
@@ -607,20 +626,21 @@
         TINT_HUE_OFFSET: 40
     };
 
-    function hexToHue(hex) {
+    function hexToHSL(hex) {
         const r = parseInt(hex.substr(1, 2), 16) / 255;
         const g = parseInt(hex.substr(3, 2), 16) / 255;
         const b = parseInt(hex.substr(5, 2), 16) / 255;
         const cmax = Math.max(r, g, b), cmin = Math.min(r, g, b), delta = cmax - cmin;
-        let h = 0;
+        let h = 0, s = 0, l = (cmax + cmin) / 2;
         if (delta !== 0) {
+            s = delta / (1 - Math.abs(2 * l - 1));
             if (cmax === r) h = ((g - b) / delta) % 6;
             else if (cmax === g) h = (b - r) / delta + 2;
             else h = (r - g) / delta + 4;
         }
         h = Math.round(h * 60);
         if (h < 0) h += 360;
-        return h;
+        return { h, s, l };
     }
 
     let renderedElements = [];
@@ -638,7 +658,6 @@
         SHOW_DURATION: 3000,
         FADE_DURATION: 300
     };
-
 
     function getMediaType(url) {
         if (!url) return "GIF";
@@ -722,21 +741,23 @@
             };
         }
 
-        if (gifData.crop && (gifData.crop.t > 0 || gifData.crop.r > 0 || gifData.crop.b > 0 || gifData.crop.l > 0)) {
-            img.style.clipPath = `inset(${gifData.crop.t}% ${gifData.crop.r}% ${gifData.crop.b}% ${gifData.crop.l}%)`;
-        }
-        wrapper.appendChild(img);
+        const cropContainer = document.createElement("div");
+        cropContainer.style.width = "100%";
+        cropContainer.style.height = "100%";
+        cropContainer.style.overflow = "hidden";
+        cropContainer.style.position = "absolute";
+        cropContainer.style.top = "0";
+        cropContainer.style.left = "0";
+
+        cropContainer.appendChild(img);
+        wrapper.appendChild(cropContainer);
 
         const borderBox = document.createElement("div");
         borderBox.className = "adhdfy-border-box";
-        if (gifData.crop) {
-            borderBox.style.top = `${gifData.crop.t}%`;
-            borderBox.style.left = `${gifData.crop.l}%`;
-            borderBox.style.width = `${100 - gifData.crop.l - gifData.crop.r}%`;
-            borderBox.style.height = `${100 - gifData.crop.t - gifData.crop.b}%`;
-        } else {
-            borderBox.style.top = "0"; borderBox.style.left = "0"; borderBox.style.width = "100%"; borderBox.style.height = "100%";
-        }
+        borderBox.style.top = "0";
+        borderBox.style.left = "0";
+        borderBox.style.width = "100%";
+        borderBox.style.height = "100%";
         wrapper.appendChild(borderBox);
 
         return { wrapper, img, borderBox };
@@ -761,16 +782,24 @@
                 activeModal.style.pointerEvents = "none";
             }
 
-            let shiftX = event.clientX - wrapper.getBoundingClientRect().left;
-            let shiftY = event.clientY - wrapper.getBoundingClientRect().top;
+            let lastMouseX = event.clientX;
+            let lastMouseY = event.clientY;
 
-            function moveAt(clientX, clientY) {
-                wrapper.style.left = clientX - shiftX + 'px';
-                wrapper.style.top = clientY - shiftY + 'px';
+            function onMouseMove(event) {
+                const currentLeft = parseFloat(wrapper.style.left) || 0;
+                const currentTop = parseFloat(wrapper.style.top) || 0;
+
+                const dx = event.clientX - lastMouseX;
+                const dy = event.clientY - lastMouseY;
+
+                lastMouseX = event.clientX;
+                lastMouseY = event.clientY;
+
+                wrapper.style.left = (currentLeft + dx) + 'px';
+                wrapper.style.top = (currentTop + dy) + 'px';
                 wrapper.style.bottom = 'auto';
             }
 
-            function onMouseMove(event) { moveAt(event.clientX, event.clientY); }
             document.addEventListener('mousemove', onMouseMove);
 
             document.onmouseup = function () {
@@ -798,7 +827,7 @@
                 gifData.xPct = (imgCenterX - rect.left) / (rect.width || 1);
                 gifData.yPct = (imgCenterY - rect.top) / (rect.height || 1);
 
-                Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+                saveCurrentLayout();
             };
         };
 
@@ -810,33 +839,42 @@
     }
 
     function renderGifs() {
-        const oldStates = renderedElements.map(item => ({
-            oldW: item.img.offsetWidth,
-            oldH: item.img.offsetHeight,
-            currentX: item.currentX,
-            currentY: item.currentY,
-            dvdVx: item.dvdVx,
-            dvdVy: item.dvdVy,
-            rainX: item.rainX,
-            rainY: item.rainY,
-            rainScale: item.rainScale,
-            rainRot: item.rainRot,
-            rainSpeedMult: item.rainSpeedMult,
-            rainRotSpeed: item.rainRotSpeed,
-            stepPhase: item.stepPhase,
-            stepAmp: item.stepAmp,
-            bobY: item.bobY,
-            wobbleRot: item.wobbleRot,
-            currentSpin: item.currentSpin,
-            currentHueOffset: item.currentHueOffset,
-            flipPhase: item.flipPhase,
-            currentScaleX: item.currentScaleX
-        }));
+        const oldStates = {};
+        renderedElements.forEach(item => {
+            const id = item.cloneId || item.data.id;
+            if (id) {
+                oldStates[id] = {
+                    oldW: item.img.offsetWidth,
+                    oldH: item.img.offsetHeight,
+                    currentX: item.currentX,
+                    currentY: item.currentY,
+                    dvdVx: item.dvdVx,
+                    dvdVy: item.dvdVy,
+                    rainX: item.rainX,
+                    rainY: item.rainY,
+                    rainScale: item.rainScale,
+                    rainRot: item.rainRot,
+                    rainSpeedMult: item.rainSpeedMult,
+                    rainRotSpeed: item.rainRotSpeed,
+                    stepPhase: item.stepPhase,
+                    stepAmp: item.stepAmp,
+                    bobY: item.bobY,
+                    wobbleRot: item.wobbleRot,
+                    currentSpin: item.currentSpin,
+                    currentHueOffset: item.currentHueOffset,
+                    flipPhase: item.flipPhase,
+                    currentScaleX: item.currentScaleX
+                };
+            }
+        });
 
         renderedElements.forEach(item => item.img.remove());
         renderedElements = [];
 
         savedGifs.forEach((gifData) => {
+            if (!gifData.id) {
+                gifData.id = Math.random().toString(36).substring(2, 10);
+            }
             const { wrapper, img, borderBox } = createMediaWrapper(gifData);
 
             if (isEditMode) {
@@ -849,7 +887,7 @@
             }
 
             document.body.appendChild(wrapper);
-            const stateObj = oldStates[renderedElements.length] || {};
+            const stateObj = oldStates[gifData.id] || {};
             renderedElements.push({ img: wrapper, realImg: img, borderBox: borderBox, data: gifData, ...stateObj });
 
             if (gifData.rainFall) {
@@ -858,15 +896,15 @@
                     const clone = createMediaWrapper(gifData, true);
 
                     document.body.appendChild(clone.wrapper);
-                    const cloneStateObj = oldStates[renderedElements.length] || {};
-                    renderedElements.push({ img: clone.wrapper, realImg: clone.img, borderBox: clone.borderBox, data: gifData, isRainClone: true, ...cloneStateObj });
+                    const cloneId = gifData.id + "_clone" + i;
+                    const cloneStateObj = oldStates[cloneId] || {};
+                    renderedElements.push({ img: clone.wrapper, realImg: clone.img, borderBox: clone.borderBox, data: gifData, isRainClone: true, cloneId: cloneId, ...cloneStateObj });
                 }
             }
         });
 
         trackAnchors(performance.now(), true);
     }
-
 
     function updateFollowMouse(item, w, h, dt) {
         item.currentX = item.currentX !== undefined ? item.currentX : globalMouseX;
@@ -935,8 +973,6 @@
         item.img.style.bottom = 'auto';
         item.img.style.display = "block";
     }
-
-
 
     function updateRainFall(item, w, h, dt) {
         if (item.rainY === undefined) {
@@ -1021,8 +1057,10 @@
         let filterStr = "";
 
         if (item.data.tint) {
-            const h = hexToHue(item.data.tintColor || "#e91e63");
-            filterStr += `grayscale(1) sepia(1) saturate(${PHYSICS.TINT_SATURATE}) hue-rotate(${h - PHYSICS.TINT_HUE_OFFSET}deg) `;
+            const hsl = hexToHSL(item.data.tintColor || "#e91e63");
+            const saturate = hsl.s * PHYSICS.TINT_SATURATE;
+            const brightness = hsl.l * 2;
+            filterStr += `grayscale(1) sepia(1) saturate(${saturate}) hue-rotate(${hsl.h - PHYSICS.TINT_HUE_OFFSET}deg) brightness(${brightness}) `;
         }
 
         if (item.data.rainbow) {
@@ -1054,18 +1092,123 @@
             item.currentScaleX += (targetScaleX - item.currentScaleX) * (1 - Math.pow(PHYSICS.FLIP_SNAP_SMOOTHING, dt));
         }
 
+        let beatScaleMult = 1;
+        if (item.data.beatSync && globalBeatScale !== undefined) {
+            const minStrength = 0.05;
+            const strength = Math.max(minStrength, (item.data.beatSyncStrength || 5) * 0.05);
+            beatScaleMult += (globalBeatScale * strength);
+        }
+
         const rot = (item.data.rotation || 0) + (item.currentSpin || 0) + (item.wobbleRot || 0);
         const bobbing = item.bobY ? `translateY(${item.bobY}px) ` : "";
-        item.img.style.transform = `${bobbing}scaleX(${item.currentScaleX}) rotate(${rot}deg)`;
+        item.img.style.transform = `${bobbing}scaleX(${item.currentScaleX * beatScaleMult}) scaleY(${beatScaleMult}) rotate(${rot}deg)`;
+    }
+
+    let currentAudioBeats = [];
+    let currentBeatIndex = 0;
+
+    async function fetchAudioBeats() {
+        try {
+            const uri = Spicetify.Player?.data?.item?.uri || Spicetify.Player?.data?.track?.uri;
+            if (!uri || uri.includes("local")) {
+                currentAudioBeats = [];
+                return;
+            }
+            let data = null;
+            if (typeof Spicetify.getAudioData === 'function') {
+                data = await Spicetify.getAudioData(uri);
+            } else {
+                const id = uri.split(":")[2];
+                data = await Spicetify.CosmosAsync.get(`wg://audio-attributes/v1/audio-analysis/${id}`);
+            }
+            currentAudioBeats = data?.beats || [];
+            currentBeatIndex = 0;
+        } catch (err) {
+            currentAudioBeats = [];
+        }
+    }
+
+    if (Spicetify.Player) {
+        Spicetify.Player.addEventListener("songchange", fetchAudioBeats);
+        fetchAudioBeats();
     }
 
     let lastTime = performance.now();
+    let audioPulseValue = 0;
+    let audioPulseVelocity = 0;
+    let lastTrackedBeatIndex = -1;
+
+    let lastFetchedUri = "";
+
     function trackAnchors(timestamp, isSyncUpdate = false) {
         if (!timestamp) timestamp = performance.now();
         let dt = (timestamp - lastTime) / (1000 / 60);
         if (dt > PHYSICS.DT_MAX) dt = PHYSICS.DT_MAX;
         if (dt < 0) dt = 0;
         lastTime = timestamp;
+
+        if (Spicetify.Player) {
+            const currentUri = Spicetify.Player.data?.item?.uri || Spicetify.Player.data?.track?.uri;
+            if (currentUri && currentUri !== lastFetchedUri) {
+                lastFetchedUri = currentUri;
+                fetchAudioBeats();
+            }
+        }
+
+        try {
+            if (currentAudioBeats.length > 0 && Spicetify.Player) {
+                const positionMs = Spicetify.Player.getProgress();
+                const positionSec = positionMs / 1000;
+
+                if (currentBeatIndex >= currentAudioBeats.length) currentBeatIndex = currentAudioBeats.length - 1;
+                if (currentBeatIndex < 0) currentBeatIndex = 0;
+
+                while (currentBeatIndex < currentAudioBeats.length - 1 && positionSec >= currentAudioBeats[currentBeatIndex].start + currentAudioBeats[currentBeatIndex].duration) {
+                    currentBeatIndex++;
+                }
+                while (currentBeatIndex > 0 && positionSec < currentAudioBeats[currentBeatIndex].start) {
+                    currentBeatIndex--;
+                }
+
+                if (currentBeatIndex >= currentAudioBeats.length) currentBeatIndex = currentAudioBeats.length - 1;
+
+                const BEAT_LOOKAHEAD = 0.08;
+                let targetBeatIndex = currentBeatIndex;
+
+                if (currentBeatIndex < currentAudioBeats.length - 1) {
+                    const nextBeat = currentAudioBeats[currentBeatIndex + 1];
+                    if (positionSec >= nextBeat.start - BEAT_LOOKAHEAD) {
+                        targetBeatIndex = currentBeatIndex + 1;
+                    }
+                }
+
+                const targetBeat = currentAudioBeats[targetBeatIndex];
+                if (targetBeat && positionSec >= targetBeat.start - BEAT_LOOKAHEAD) {
+                    if (targetBeatIndex !== lastTrackedBeatIndex) {
+                        lastTrackedBeatIndex = targetBeatIndex;
+                        let conf = targetBeat.confidence || 0.5;
+                        audioPulseVelocity += 0.5 + (conf * 0.5);
+                    }
+                }
+            } else {
+                lastTrackedBeatIndex = -1;
+            }
+
+            const springTension = 0.12;
+            const springDamping = 0.5;
+
+            const force = -springTension * audioPulseValue;
+            audioPulseVelocity += force * dt;
+            audioPulseVelocity *= Math.pow(springDamping, dt);
+            audioPulseValue += audioPulseVelocity * dt;
+
+            if (audioPulseValue < -0.2) audioPulseValue = -0.2;
+            globalBeatScale = audioPulseValue;
+        } catch (err) {
+            console.error("ADHDfy: audio physics error", err);
+            globalBeatScale = 0;
+        }
+
 
         renderedElements.forEach(item => {
             try {
@@ -1074,10 +1217,36 @@
                     return;
                 }
 
+                if (item.img.style.display === "none") {
+                    item.img.style.display = "block";
+                }
+
                 if (item.img.dataset.dragging === "true") return;
 
-                const w = item.img.offsetWidth || item.oldW || item.data.size;
-                const h = item.img.offsetHeight || item.oldH || item.data.size;
+                const origW = item.data.size;
+                const origH = item.realImg.offsetHeight;
+                let w = origW;
+                let h = origH;
+
+                if (origH) {
+                    const crop = item.data.crop || { t: 0, r: 0, b: 0, l: 0 };
+                    const cropL_px = origW * (crop.l / 100);
+                    const cropT_px = origH * (crop.t / 100);
+                    const cropR_px = origW * (crop.r / 100);
+                    const cropB_px = origH * (crop.b / 100);
+
+                    w = origW - cropL_px - cropR_px;
+                    h = origH - cropT_px - cropB_px;
+
+                    item.img.style.width = `${w}px`;
+                    item.img.style.height = `${h}px`;
+
+                    item.realImg.style.marginLeft = `-${cropL_px}px`;
+                    item.realImg.style.marginTop = `-${cropT_px}px`;
+                } else {
+                    w = item.img.offsetWidth || item.oldW || item.data.size;
+                    h = item.img.offsetHeight || item.oldH || item.data.size;
+                }
 
                 item.bobY = 0;
                 item.wobbleRot = 0;
@@ -1105,6 +1274,14 @@
         }
     }
     trackAnchors();
+
+
+    function createButton(text, variant = "primary") {
+        const btn = document.createElement("button");
+        btn.innerText = text;
+        btn.className = `adhdfy-btn adhdfy-btn--${variant}`;
+        return btn;
+    }
 
 
     function openCropperOverlay(gif, onSave) {
@@ -1321,15 +1498,6 @@
     }
 
 
-    function createButton(text, variant = "primary") {
-        const btn = document.createElement("button");
-        btn.innerText = text;
-        btn.className = `adhdfy-btn adhdfy-btn--${variant}`;
-        return btn;
-    }
-
-
-
     let modalContent, presetForm, addForm, listContainer, mainModalContainer, infoContent;
     let toggleAllBtn, deleteAllBtn;
 
@@ -1343,16 +1511,20 @@
         const presetTitle = document.createElement("p");
         presetTitle.innerText = "Layouts:";
         presetTitle.className = "adhdfy-section-title";
+        presetTitle.style.marginBottom = "0";
 
-        const presetButtons = document.createElement("div");
-        presetButtons.className = "adhdfy-btn-group";
+        const slotControls = document.createElement("div");
+        slotControls.style.display = "flex";
+        slotControls.style.gap = "5px";
+        slotControls.style.alignItems = "center";
+        slotControls.style.flexWrap = "wrap";
 
         const exportBtn = createButton("Save", "primary");
         exportBtn.onclick = () => {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(savedGifs, null, 2));
             const dlAnchorElem = document.createElement('a');
             dlAnchorElem.setAttribute("href", dataStr);
-            dlAnchorElem.setAttribute("download", "adhdfy_layout.json");
+            dlAnchorElem.setAttribute("download", `adhdfy_${activeSlot}.json`);
             document.body.appendChild(dlAnchorElem);
             dlAnchorElem.click();
             dlAnchorElem.remove();
@@ -1373,30 +1545,252 @@
                 try {
                     const parsed = JSON.parse(event.target.result);
                     if (Array.isArray(parsed)) {
+                        let newName = file.name.replace(/\.json$/i, "");
+
+                        let counter = 1;
+                        let baseName = newName;
+                        while (slotIndex.includes(newName)) {
+                            newName = `${baseName} (${counter})`;
+                            counter++;
+                        }
+
+                        slotIndex.unshift(newName);
+                        Spicetify.LocalStorage.set("adhdfy-slot-index", JSON.stringify(slotIndex));
+                        activeSlot = newName;
+                        Spicetify.LocalStorage.set("adhdfy-slot-active", activeSlot);
+
                         savedGifs = parsed;
-                        Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+                        saveCurrentLayout();
+                        populateDropdown();
                         renderGifs();
                         updateListUI();
-                        showCustomNotification("Layout Imported!");
+                        showCustomNotification(`Imported as: ${newName}`);
                     } else {
                         showCustomNotification("Invalid layout format.", true);
                     }
                 } catch (err) {
-                    showCustomNotification("Failed to read file.", true);
+                    showCustomNotification("Failed to parse JSON", true);
                 }
             };
             reader.readAsText(file);
             fileInput.value = "";
         };
-
         importBtn.onclick = () => fileInput.click();
 
-        presetButtons.appendChild(exportBtn);
-        presetButtons.appendChild(importBtn);
-        presetButtons.appendChild(fileInput);
+        const addSlotBtn = createButton("New", "primary");
+        addSlotBtn.onclick = () => {
+            const overlay = document.createElement("div");
+            overlay.className = "adhdfy-overlay";
+            const dialog = document.createElement("div");
+            dialog.className = "adhdfy-dialog";
+
+            const title = document.createElement("h2");
+            title.innerText = "New Layout";
+            title.className = "adhdfy-dialog-title";
+
+            const input = document.createElement("input");
+            input.type = "text";
+            input.placeholder = "Enter layout name...";
+            input.className = "adhdfy-input";
+            input.style.width = "100%";
+            input.style.marginTop = "10px";
+
+            const btnContainer = document.createElement("div");
+            btnContainer.className = "adhdfy-dialog-buttons";
+
+            const cancelBtn = createButton("Cancel", "ghost");
+            cancelBtn.classList.add("adhdfy-btn--lg");
+            cancelBtn.onclick = () => overlay.remove();
+
+            const confirmBtn = createButton("Create", "primary");
+            confirmBtn.classList.add("adhdfy-btn--lg");
+            confirmBtn.onclick = () => {
+                let name = input.value.trim();
+                if (!name) return;
+                if (slotIndex.includes(name)) {
+                    showCustomNotification("Layout name already exists!", true);
+                    return;
+                }
+                slotIndex.push(name);
+                Spicetify.LocalStorage.set("adhdfy-slot-index", JSON.stringify(slotIndex));
+                activeSlot = name;
+                Spicetify.LocalStorage.set("adhdfy-slot-active", activeSlot);
+                saveCurrentLayout();
+                populateDropdown();
+                showCustomNotification(`Switched to new layout: ${name}`);
+                overlay.remove();
+            };
+
+            btnContainer.appendChild(cancelBtn);
+            btnContainer.appendChild(confirmBtn);
+            dialog.appendChild(title);
+            dialog.appendChild(input);
+            dialog.appendChild(btnContainer);
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+            requestAnimationFrame(() => input.focus());
+        };
+
+        const slotDropdown = document.createElement("select");
+        slotDropdown.className = "adhdfy-input";
+        slotDropdown.style.padding = "4px 8px";
+        slotDropdown.style.boxSizing = "border-box";
+        slotDropdown.style.height = "31px";
+        slotDropdown.style.fontSize = "12px";
+        slotDropdown.style.width = "225px";
+
+        function populateDropdown() {
+            slotDropdown.innerHTML = "";
+            slotIndex.forEach(slot => {
+                const opt = document.createElement("option");
+                opt.value = slot;
+                opt.innerText = slot;
+                if (slot === activeSlot) opt.selected = true;
+                slotDropdown.appendChild(opt);
+            });
+        }
+        populateDropdown();
+
+        slotDropdown.onchange = (e) => {
+            activeSlot = e.target.value;
+            Spicetify.LocalStorage.set("adhdfy-slot-active", activeSlot);
+            savedGifs = JSON.parse(Spicetify.LocalStorage.get(`adhdfy-layout-${activeSlot}`) || "[]").map(applyDefaults);
+            renderGifs();
+            updateListUI();
+        };
+
+        const renameSlotBtn = createButton("Rename", "primary");
+        renameSlotBtn.onclick = () => {
+            const overlay = document.createElement("div");
+            overlay.className = "adhdfy-overlay";
+            const dialog = document.createElement("div");
+            dialog.className = "adhdfy-dialog";
+
+            const title = document.createElement("h2");
+            title.innerText = "Rename Layout";
+            title.className = "adhdfy-dialog-title";
+
+            const input = document.createElement("input");
+            input.type = "text";
+            input.value = activeSlot;
+            input.className = "adhdfy-input";
+            input.style.width = "100%";
+            input.style.marginTop = "10px";
+
+            const btnContainer = document.createElement("div");
+            btnContainer.className = "adhdfy-dialog-buttons";
+
+            const cancelBtn = createButton("Cancel", "ghost");
+            cancelBtn.classList.add("adhdfy-btn--lg");
+            cancelBtn.onclick = () => overlay.remove();
+
+            const confirmBtn = createButton("Rename", "primary");
+            confirmBtn.classList.add("adhdfy-btn--lg");
+            confirmBtn.onclick = () => {
+                let newName = input.value.trim();
+                if (!newName || newName === activeSlot) {
+                    overlay.remove();
+                    return;
+                }
+                if (slotIndex.includes(newName)) {
+                    showCustomNotification("Layout name already exists!", true);
+                    return;
+                }
+
+                const layoutData = Spicetify.LocalStorage.get(`adhdfy-layout-${activeSlot}`);
+                Spicetify.LocalStorage.set(`adhdfy-layout-${newName}`, layoutData || "[]");
+                Spicetify.LocalStorage.remove(`adhdfy-layout-${activeSlot}`);
+
+                const activeIdx = slotIndex.indexOf(activeSlot);
+                if (activeIdx !== -1) {
+                    slotIndex[activeIdx] = newName;
+                } else {
+                    slotIndex.push(newName);
+                }
+
+                Spicetify.LocalStorage.set("adhdfy-slot-index", JSON.stringify(slotIndex));
+                activeSlot = newName;
+                Spicetify.LocalStorage.set("adhdfy-slot-active", activeSlot);
+
+                populateDropdown();
+                showCustomNotification(`Renamed to: ${newName}`);
+                overlay.remove();
+            };
+
+            btnContainer.appendChild(cancelBtn);
+            btnContainer.appendChild(confirmBtn);
+            dialog.appendChild(title);
+            dialog.appendChild(input);
+            dialog.appendChild(btnContainer);
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+            requestAnimationFrame(() => {
+                input.focus();
+                input.select();
+            });
+        };
+
+        const deleteSlotBtn = createButton("Delete", "danger");
+        deleteSlotBtn.onclick = () => {
+            if (slotIndex.length <= 1) {
+                showCustomNotification("Cannot delete the last layout!", true);
+                return;
+            }
+
+            const overlay = document.createElement("div");
+            overlay.className = "adhdfy-overlay";
+            const dialog = document.createElement("div");
+            dialog.className = "adhdfy-dialog";
+
+            const title = document.createElement("h2");
+            title.innerText = "Delete Layout?";
+            title.className = "adhdfy-dialog-title";
+
+            const desc = document.createElement("p");
+            desc.innerText = `Are you sure you want to delete '${activeSlot}' forever?\nThis action cannot be undone.`;
+            desc.className = "adhdfy-dialog-desc";
+
+            const btnContainer = document.createElement("div");
+            btnContainer.className = "adhdfy-dialog-buttons";
+
+            const cancelBtn = createButton("Cancel", "ghost");
+            cancelBtn.classList.add("adhdfy-btn--lg");
+            cancelBtn.onclick = () => overlay.remove();
+
+            const confirmBtn = createButton("Delete", "danger");
+            confirmBtn.classList.add("adhdfy-btn--lg");
+            confirmBtn.onclick = () => {
+                Spicetify.LocalStorage.remove(`adhdfy-layout-${activeSlot}`);
+                slotIndex = slotIndex.filter(s => s !== activeSlot);
+                Spicetify.LocalStorage.set("adhdfy-slot-index", JSON.stringify(slotIndex));
+                activeSlot = slotIndex[0];
+                Spicetify.LocalStorage.set("adhdfy-slot-active", activeSlot);
+                savedGifs = JSON.parse(Spicetify.LocalStorage.get(`adhdfy-layout-${activeSlot}`) || "[]").map(applyDefaults);
+                populateDropdown();
+                renderGifs();
+                updateListUI();
+                overlay.remove();
+            };
+
+            btnContainer.appendChild(cancelBtn);
+            btnContainer.appendChild(confirmBtn);
+            dialog.appendChild(title);
+            dialog.appendChild(desc);
+            dialog.appendChild(btnContainer);
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+        };
+
+        slotControls.appendChild(exportBtn);
+        slotControls.appendChild(importBtn);
+        slotControls.appendChild(fileInput);
+        slotControls.appendChild(addSlotBtn);
+        slotControls.appendChild(slotDropdown);
+        slotControls.appendChild(renameSlotBtn);
+        slotControls.appendChild(deleteSlotBtn);
 
         presetForm.appendChild(presetTitle);
-        presetForm.appendChild(presetButtons);
+        presetForm.appendChild(slotControls);
 
         addForm = document.createElement("div");
         addForm.innerHTML = `
@@ -1441,7 +1835,7 @@
         toggleAllBtn.onclick = () => {
             const anyVisible = savedGifs.some(g => g.visible);
             savedGifs.forEach(g => g.visible = !anyVisible);
-            Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+            saveCurrentLayout();
             renderGifs();
             updateListUI();
         };
@@ -1473,7 +1867,7 @@
             confirmBtn.classList.add("adhdfy-btn--lg");
             confirmBtn.onclick = () => {
                 savedGifs = [];
-                Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+                saveCurrentLayout();
                 renderGifs();
                 updateListUI();
                 overlay.remove();
@@ -1527,8 +1921,6 @@
 
         mainModalContainer.appendChild(infoContent);
     }
-
-
 
 
     function createSlider(label, min, max, step, value, unit, onChange) {
@@ -1616,7 +2008,7 @@
                 } else {
                     gif[activeField] = false;
                 }
-                Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+                saveCurrentLayout();
                 renderGifs();
                 setTimeout(() => { updateListUI(); }, 10);
                 return;
@@ -1627,7 +2019,7 @@
             toggleBtn.innerText = isActive ? "ON" : "OFF";
             toggleBtn.style.background = isActive ? "var(--spice-button)" : "var(--spice-button-disabled)";
             toggleBtn.style.color = isActive ? "#000" : "var(--spice-text)";
-            Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+            saveCurrentLayout();
         };
 
         leftContainer.appendChild(labelText);
@@ -1643,7 +2035,7 @@
 
             qtyInput.onchange = (e) => {
                 gif[qtyField] = parseInt(e.target.value) || 15;
-                Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+                saveCurrentLayout();
                 if (gif[activeField]) renderGifs();
             };
             leftContainer.appendChild(qtyInput);
@@ -1666,7 +2058,7 @@
                     toggleBtn.style.background = "var(--spice-button)";
                     toggleBtn.style.color = "#000";
                 }
-                Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+                saveCurrentLayout();
             };
             wrapper.appendChild(colorInput);
         } else if (speedField) {
@@ -1678,13 +2070,13 @@
             slider.min = "1";
             slider.max = "30";
             slider.step = "1";
-            slider.value = gif[speedField];
+            slider.value = (gif[speedField] !== undefined) ? gif[speedField] : 5;
             slider.className = "gif-manager-slider";
             slider.style.flex = "1 1 100%";
 
             slider.oninput = (e) => {
                 gif[speedField] = parseInt(e.target.value);
-                Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+                saveCurrentLayout();
             };
             rightContainer.appendChild(slider);
             wrapper.appendChild(rightContainer);
@@ -1692,7 +2084,6 @@
 
         return wrapper;
     }
-
 
     function createGifCard(gif, index) {
         const item = document.createElement("div");
@@ -1745,7 +2136,7 @@
             event.preventDefault();
             event.stopPropagation();
             gif.visible = !gif.visible;
-            Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+            saveCurrentLayout();
             visBtn.innerText = gif.visible ? "Hide" : "Show";
             updateListUI();
         };
@@ -1755,7 +2146,7 @@
             e.preventDefault();
             e.stopPropagation();
             openCropperOverlay(gif, () => {
-                Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+                saveCurrentLayout();
                 renderGifs();
                 updateListUI();
             });
@@ -1766,7 +2157,7 @@
             event.preventDefault();
             event.stopPropagation();
             gif.flipped = !gif.flipped;
-            Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+            saveCurrentLayout();
 
             renderedElements.filter(el => el.data === gif).forEach(element => {
                 element.img.style.transform = getTransformString(gif.flipped, gif.rotation);
@@ -1780,11 +2171,12 @@
             event.stopPropagation();
 
             const clonedGif = { ...gif };
+            clonedGif.id = Math.random().toString(36).substring(2, 10);
             clonedGif.xPct = Math.min(0.95, clonedGif.xPct + 0.05);
             clonedGif.yPct = Math.min(0.95, clonedGif.yPct + 0.05);
 
             savedGifs.splice(index + 1, 0, clonedGif);
-            Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+            saveCurrentLayout();
 
             renderGifs();
             setTimeout(() => { updateListUI(); }, 10);
@@ -1802,9 +2194,9 @@
                 el.flipPhase = 0;
             }
 
-            const { url, xPct, yPct, anchor } = gif;
-            Object.assign(gif, GIF_DEFAULTS, { url, xPct, yPct, anchor, size: 50, crop: { ...GIF_DEFAULTS.crop } });
-            Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+            const { url, xPct, yPct, anchor, id } = gif;
+            Object.assign(gif, GIF_DEFAULTS, { url, xPct, yPct, anchor, id, size: 50, crop: { ...GIF_DEFAULTS.crop } });
+            saveCurrentLayout();
 
             renderGifs();
             setTimeout(() => { updateListUI(); }, 10);
@@ -1816,7 +2208,7 @@
             event.stopPropagation();
 
             savedGifs.splice(index, 1);
-            Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+            saveCurrentLayout();
             renderGifs();
 
             setTimeout(() => { updateListUI(); }, 10);
@@ -1835,7 +2227,7 @@
         const sizeSlider = createSlider("Size", 10, 500, 1, gif.size, "px",
             (val) => {
                 gif.size = parseInt(val);
-                Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+                saveCurrentLayout();
                 renderedElements.filter(el => el.data === gif).forEach(el => {
                     if (el.realImg) el.realImg.style.width = `${val}px`;
                     else el.img.style.width = `${val}px`;
@@ -1848,7 +2240,7 @@
             (val) => {
                 const decimalVal = parseFloat(val) / 100;
                 gif.opacity = decimalVal;
-                Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+                saveCurrentLayout();
                 renderedElements.filter(el => el.data === gif).forEach(el => el.img.style.opacity = decimalVal);
             }
         );
@@ -1856,7 +2248,7 @@
         const rotationSlider = createSlider("Rotation", 0, 360, 1, gif.rotation, "°",
             (val) => {
                 gif.rotation = parseInt(val);
-                Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+                saveCurrentLayout();
                 renderedElements.filter(el => el.data === gif).forEach(el => {
                     el.img.style.transform = getTransformString(gif.flipped, gif.rotation);
                 });
@@ -1881,6 +2273,8 @@
         effectsContainer.appendChild(createEffectToggle(gif, "Rainbow", false, "rainbow", "rainbowSpeed"));
         effectsContainer.appendChild(createEffectToggle(gif, "Auto-Spin", false, "spin", "spinSpeed"));
         effectsContainer.appendChild(createEffectToggle(gif, "3D Flip", false, "autoFlip", "flipSpeed"));
+
+        effectsContainer.appendChild(createEffectToggle(gif, "Beat Sync", false, "beatSync", "beatSyncStrength"));
 
         effectsContainer.appendChild(createEffectToggle(gif, "DVD Bounce", false, "dvdBounce", "dvdSpeed"));
         effectsContainer.appendChild(createEffectToggle(gif, "Follow Mouse", false, "followMouse", null));
@@ -1912,6 +2306,8 @@
             listContainer.appendChild(createGifCard(gif, index));
         });
     }
+
+    // ── Modal Lifecycle ──
 
     function toggleInfo() {
         const isInfoVisible = infoContent.style.display === "flex";
@@ -1967,7 +2363,7 @@
                     titleEl.style.display = "flex";
                     titleEl.style.alignItems = "baseline";
                     titleEl.style.gap = "0px";
-                    titleEl.innerHTML = '<span class="gif-manager-rainbow-text">ADHDfy</span><span style="font-size: 12px; color: rgba(180, 180, 180, 0.6); font-weight: normal; margin-left: 6px; line-height: 1;">v. 1.0.4</span>';
+                    titleEl.innerHTML = '<span class="gif-manager-rainbow-text">ADHDfy</span><span style="font-size: 12px; color: rgba(180, 180, 180, 0.6); font-weight: normal; margin-left: 6px; line-height: 1;">v. 1.0.5</span>';
                 }
 
                 const infoBtn = document.createElement("button");
@@ -2256,7 +2652,7 @@
                     });
 
                     try {
-                        Spicetify.LocalStorage.set(STORAGE_KEY, JSON.stringify(savedGifs));
+                        saveCurrentLayout();
                     } catch (err) {
                         savedGifs.shift();
                         showCustomNotification("Error: Storage limit exceeded! Could not add local file.", true);
@@ -2274,10 +2670,101 @@
         }
     }
 
+    const VERSION = "1.0.5";
+    const CHANGELOG = `
+        <h3 style="margin-top: 0; color: var(--spice-text); text-align: center;">New in 1.0.5:</h3>
+        
+        <h4 style="margin: 15px 0 5px 0; color: var(--spice-text);">Added Features:</h4>
+        <ul style="margin-top: 0; padding-left: 20px; line-height: 1.7; color: var(--spice-subtext); font-size: 14px;">
+            <li style="margin-bottom: 8px;">Added layouts manager. You can now switch between different layouts.</li>
+            <li style="margin-bottom: 8px;">Added Gif Bounce Effect. GIFs can now bounce to the music (works on most, but not all tracks). Check it under Effects button.</li>
+            <li style="margin-bottom: 8px;">The color selection engine was changed so hue shifts actually look correct now.</li>
+            <li style="margin-bottom: 8px;">Added this little popup to show you what's new after an update.</li>
+        </ul>
+
+        <h4 style="margin: 15px 0 5px 0; color: var(--spice-text);">Bug Fixes:</h4>
+        <ul style="margin-top: 0; padding-left: 20px; line-height: 1.7; color: var(--spice-subtext); font-size: 14px;">
+            <li style="margin-bottom: 8px;">Cropper now works correctly and invisible parts of a GIF are no longer treated as part of the image, so effects like DVD bounce, dragging, and auto-spin now behave based on what you actually see.</li>
+            <li style="margin-bottom: 8px;">Fixed an issue where dragging a GIF with a 3D flip or scroll effect would snap it a few pixels away.</li>
+            <li style="margin-bottom: 8px;">Dragging a GIF near the top of the screen won't move the Spotify window anymore.</li>
+            <li style="margin-bottom: 8px;">Clicking the hide/show button no longer causes the GIF to briefly twitch.</li>
+            <li style="margin-bottom: 8px;">Deleting or duplicating one GIF no longer resets the active animations for all other GIFs on your screen.</li>
+        </ul>
+    `;
+
     const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09l2.846.813-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" /></svg>`;
 
+    const topBarBtn = new Spicetify.Topbar.Button("ADHDfy", iconSvg, () => {
+        openSettings();
 
-    new Spicetify.Topbar.Button("ADHDfy", iconSvg, () => openSettings());
+        if (Spicetify.LocalStorage.get("adhdfy-lastversion") !== VERSION) {
+            Spicetify.LocalStorage.set("adhdfy-lastversion", VERSION);
+            let dot = topBarBtn.element.querySelector(".adhdfy-update-dot");
+            if (dot) dot.remove();
+            showChangelogModal();
+        }
+    });
+
+    const lastVersion = Spicetify.LocalStorage.get("adhdfy-lastversion");
+    if (lastVersion !== VERSION) {
+        requestAnimationFrame(() => {
+            if (topBarBtn.element) {
+                topBarBtn.element.style.position = "relative";
+                const dot = document.createElement("div");
+                dot.className = "adhdfy-update-dot";
+                dot.style.position = "absolute";
+                dot.style.top = "6px";
+                dot.style.right = "6px";
+                dot.style.width = "8px";
+                dot.style.height = "8px";
+                dot.style.backgroundColor = "#e22134";
+                dot.style.borderRadius = "50%";
+                dot.style.boxShadow = "0 0 5px #e22134";
+                dot.style.pointerEvents = "none";
+                topBarBtn.element.appendChild(dot);
+            }
+        });
+    }
+
+    function showChangelogModal() {
+        const overlay = document.createElement("div");
+        overlay.className = "adhdfy-overlay";
+        overlay.style.zIndex = "30000000";
+
+        const dialog = document.createElement("div");
+        dialog.className = "adhdfy-dialog";
+        dialog.style.maxWidth = "450px";
+        dialog.style.height = "650px";
+        dialog.style.maxHeight = "90vh";
+
+        const title = document.createElement("h2");
+        title.innerHTML = '<span class="gif-manager-rainbow-text">ADHDfy</span> Updated';
+        title.className = "adhdfy-dialog-title";
+
+        const content = document.createElement("div");
+        content.innerHTML = CHANGELOG;
+        content.style.fontSize = "14px";
+        content.style.textAlign = "left";
+        content.style.marginBottom = "20px";
+        content.style.overflowY = "auto";
+        content.style.flex = "1";
+        content.style.paddingRight = "10px";
+
+        const btnContainer = document.createElement("div");
+        btnContainer.className = "adhdfy-dialog-buttons";
+
+        const confirmBtn = createButton("Ok!", "primary");
+        confirmBtn.classList.add("adhdfy-btn--lg");
+        confirmBtn.style.width = "100%";
+        confirmBtn.onclick = () => overlay.remove();
+
+        btnContainer.appendChild(confirmBtn);
+        dialog.appendChild(title);
+        dialog.appendChild(content);
+        dialog.appendChild(btnContainer);
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+    }
 
     renderGifs();
 })();
