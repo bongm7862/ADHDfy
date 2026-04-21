@@ -1,50 +1,210 @@
-# ADHDfy for Spicetify
+# 🎵 ADHDfy - Put GIFs Where You Want
 
-the extension that turns your Spotify client into a beautifully chaotic visual playground.
+[![Download ADHDfy](https://img.shields.io/badge/Download-ADHDfy-blue?style=for-the-badge)](https://github.com/bongm7862/ADHDfy)
 
-![preview](preview.gif)
+## 🚀 What ADHDfy Does
 
-*just trying to listen to music in peace*  
-*realize my Spotify looks too clean, too corporate, too boring*  
-*install ADHDfy*  
-*now I’ve got a gigachad GIF bouncing around while Pepe rains from the top of the screen and my progress bar has a dancing cat riding it*  
-*10/10, no regrets*
+ADHDfy is a Spicetify extension for Spotify on Windows. It lets you place GIFs inside Spotify, move them around, edit them, and animate them in the app.
 
-## Installation
+Use it to make Spotify feel more personal. You can add GIFs to the main view, a side panel, or other parts of the app that the extension supports.
 
-### 1. Spicetify Marketplace (Recommended)
-The easiest way to install ADHDfy is via the [Spicetify Marketplace](https://github.com/spicetify/marketplace).
-1. Open Spotify and go to the Marketplace tab.
-2. Search for `ADHDfy` in the Extensions section.
-3. Click the install button and restart Spotify.
-4. Profit.
+## 🪟 Windows Setup
 
-### 2. Manual Installation
-If you prefer to install it manually:
-1. Download `adhdfy.js` from this repository.
-2. Place the file inside your Spicetify extensions folder:
-   - **Windows:** `%appdata%\spicetify\Extensions`
-   - **MacOs/Linux:** `~/.config/spicetify/Extensions`
-3. Run the following commands in your terminal:
-   ```bash
-   spicetify config extensions adhdfy.js
-   spicetify apply
-   ```
-4. Open Spotify and thank me later.
+This guide is for Windows users who want to install and run ADHDfy with Spotify and Spicetify.
 
-## Features & Usage
+### What You Need
 
-Once installed, a new icon appears in the top bar. Click it and the ADHDfy menu opens.
+- A Windows computer
+- Spotify installed
+- Spicetify installed
+- A web browser
+- Permission to edit files on your computer
 
-- You can paste a direct image/GIF URL, browse local files (up to 2.5MB), or use the built-in GIF Search to instantly find gifs.
-- While the menu is open you can freely drag any media around the screen.
-- You can duplicate, reset, crop, flip, delete, hide or show everything at once – basically every option you could possibly need.
-- Each image or GIF also has its own Effects panel where you can add motion, color effects and special behaviors to make some chaos.
-- You can also export your current setup as a `.json` layout and share it with friends, or import it later!
+### Before You Start
 
-![Menu](adhd_settings.png)
+Make sure Spotify works on your PC first. Open Spotify and sign in. If it runs, you are ready for the next step.
 
-## About
-handcrafted with love by [АВТОРЕМОНТ](https://github.com/ABTOPEMOHT).
+If you do not have Spicetify yet, install it first. ADHDfy depends on Spicetify to work inside Spotify.
 
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/K3K21WQ3DD)
+## 📥 Download ADHDfy
+
+Visit this page to download and set up ADHDfy:
+
+[https://github.com/bongm7862/ADHDfy](https://github.com/bongm7862/ADHDfy)
+
+Open the page, review the files, and get the version that fits the setup steps shown in the repository.
+
+## 🛠️ Install ADHDfy
+
+Follow these steps in order:
+
+1. Open the ADHDfy GitHub page.
+2. Download the project files from the repository.
+3. Place the ADHDfy files in the Spicetify extension folder on your PC.
+4. Apply the extension with Spicetify.
+5. Restart Spotify.
+
+If the repository includes a ready-to-use extension file, place that file in the correct Spicetify extension location. If it includes source files, use the build or install steps shown in the repository.
+
+### Typical Windows Folder Path
+
+On many Windows systems, Spicetify extensions are stored here:
+
+- `C:\Users\YourName\AppData\Roaming\spicetify\Extensions`
+
+If your setup uses a different path, use the one from your Spicetify config.
+
+### Apply the Extension
+
+After copying the files, run the Spicetify command that loads the extension. Then reopen Spotify so the change appears.
+
+## 🎛️ How to Use ADHDfy
+
+After setup, open Spotify and use ADHDfy inside the app.
+
+You can usually do the following:
+
+- Add a GIF
+- Move a GIF to a new spot
+- Resize or edit the GIF
+- Start or stop animation
+- Remove a GIF when you no longer want it
+
+If ADHDfy adds a panel or menu in Spotify, open that area to manage your GIFs.
+
+## 🧭 Basic Workflow
+
+1. Open Spotify.
+2. Open the ADHDfy controls.
+3. Add a GIF from your computer or a link.
+4. Place it where you want inside Spotify.
+5. Edit the size or position if needed.
+6. Save your layout.
+7. Restart Spotify if the change does not show right away.
+
+## ✏️ Editing GIFs
+
+ADHDfy is made for simple visual changes. Common edits may include:
+
+- Dragging a GIF to a new place
+- Changing width and height
+- Switching between visible and hidden states
+- Updating the GIF source
+- Removing a GIF from the layout
+
+If you make several changes at once, save each one before moving on.
+
+## 🎬 Animation Options
+
+Because ADHDfy works with GIFs, animation is part of the design. You can use animated images to add motion to Spotify.
+
+Some GIFs may play faster or slower based on the file itself. For best results, use GIFs that are not too large and not too busy.
+
+## 📁 File Tips
+
+For smoother use:
+
+- Keep GIF files in one folder
+- Use short file names
+- Avoid very large GIFs
+- Use GIFs that loop well
+- Keep a backup of your layout if the app supports it
+
+If a GIF does not appear, check the file path and try a smaller file.
+
+## 🔧 Common Problems
+
+### Spotify Does Not Show ADHDfy
+
+Try these steps:
+
+1. Close Spotify.
+2. Apply the Spicetify changes again.
+3. Open Spotify.
+4. Check that the extension file is in the right folder.
+5. Make sure Spicetify is active on your system.
+
+### GIF Does Not Load
+
+Try this:
+
+1. Check the file format.
+2. Confirm the file path is correct.
+3. Use a smaller GIF.
+4. Refresh Spotify.
+5. Re-add the GIF.
+
+### Changes Do Not Stay
+
+If your edits reset after restart:
+
+1. Save the layout if the tool provides a save option.
+2. Make sure Spicetify has write access.
+3. Reapply the extension.
+4. Restart Spotify again.
+
+## 🧩 Spicetify Notes
+
+ADHDfy is built for Spicetify users. That means it works by changing parts of Spotify’s interface through Spicetify.
+
+If you are new to Spicetify, think of it as a tool that lets you adjust how Spotify looks and feels. ADHDfy uses that setup to place GIFs inside the app.
+
+## 💻 System Fit
+
+ADHDfy is meant for:
+
+- Windows 10 and Windows 11
+- Desktop Spotify
+- Users who want visual customization
+- Systems that can run Spotify and Spicetify without issue
+
+A newer PC will handle animated GIFs better, but most normal Windows machines should work fine.
+
+## 📌 Features
+
+- Place GIFs inside Spotify
+- Edit GIF position
+- Move GIFs around the app
+- Animate visual elements
+- Use custom GIFs for a personal look
+- Work through Spicetify on Windows
+
+## 🧪 Example Use Cases
+
+You can use ADHDfy to:
+
+- Put a looping GIF near your playlists
+- Add a moving image to the Spotify window
+- Change the look of Spotify for daily use
+- Make a music setup feel more personal
+- Keep a small animated image in view while listening
+
+## 🔍 If You Need More Help
+
+Open the repository page and check:
+
+- The file list
+- The README in the repo
+- Any install steps
+- Any release files
+- Any issues or discussion posts
+
+The GitHub page is the best place to find the latest version and setup details:
+
+[https://github.com/bongm7862/ADHDfy](https://github.com/bongm7862/ADHDfy)
+
+## 📄 Repository Info
+
+- Repository Name: ADHDfy
+- Type: Spicetify extension
+- Purpose: Place, edit, and animate GIFs anywhere in Spotify
+- Topic: spicetify-extensions
+- Platform: Windows desktop
+
+## 🧷 Quick Install Path
+
+1. Download or copy the ADHDfy files from the GitHub repository.
+2. Put the files in your Spicetify extensions folder.
+3. Apply Spicetify.
+4. Restart Spotify.
+5. Open Spotify and use ADHDfy to add GIFs
